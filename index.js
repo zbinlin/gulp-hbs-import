@@ -67,7 +67,6 @@ Handlebars.registerHelper("import", function (context, url, options) {
 
     for (var key in hash) {
         if (hash.hasOwnProperty(key)) {
-            if (key in context && context.hasOwnProperty(key)) continue;
             var value = hash[key];
             if ("string" === typeof value && golbal_context[value]) {
                 value = golbal_context[value];

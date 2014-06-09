@@ -13,8 +13,8 @@
     "import"
   ],
   "repository": {
-      "type": "git",
-      "url": "http://github.com/zbinlin/gulp-hbs-import.git"
+    "type": "git",
+    "url": "http://github.com/zbinlin/gulp-hbs-import.git"
   },
   "author": "zbinlin",
   "license": "ISC",
