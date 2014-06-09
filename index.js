@@ -19,21 +19,20 @@ var DEFAULT_EXT = ".html";
 var cache = {};
 
 /*
- * {{import [context] [url] [context=] [url=]}}
+ * {{import [url] [context] [context=] [url=]}}
  */
-Handlebars.registerHelper("import", function (context, url, options) {
+Handlebars.registerHelper("import", function (url, context options) {
     var _utils = Handlebars.Utils;
 
     var hash = null;
     if (1 === arguments.length) {
-        options = context;
+        options = url;
         hash = options.hash || {};
         url = hash["url"] || hash["uri"];
         context = hash["context"] || hash["ctx"] || golbal_context[path.basename(url, path.extname(url))];
     } else if (2 === arguments.length) {
-        options = url;
+        options = context;
         hash = options.hash || {};
-        url = context;
         context = hash["context"] || hash["ctx"] || golbal_context[path.basename(url, path.extname(url))];
     } else if (2 < arguments.length) {
         var args = [].slice.apply(arguments);
