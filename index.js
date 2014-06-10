@@ -21,7 +21,7 @@ var cache = {};
 /*
  * {{import [url] [context] [context=] [url=]}}
  */
-Handlebars.registerHelper("import", function (url, context options) {
+Handlebars.registerHelper("import", function (url, context, options) {
     var _utils = Handlebars.Utils;
 
     var hash = null;
@@ -38,7 +38,7 @@ Handlebars.registerHelper("import", function (url, context options) {
         var args = [].slice.apply(arguments);
         options = args.pop();
         hash = options.hash || {};
-        url = args.pop();
+        url = args.shift();
         context = {};
         while (args.length) {
             var ctx = args.shift();
