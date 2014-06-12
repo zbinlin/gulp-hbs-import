@@ -140,9 +140,11 @@ function gulp_hbs_import(context, fn) {
         }
 
         if (file.isStream()) {
+            file.contents.setEncoding("utf-8");
             file.contents = file.contents.pipe((function (aPath) {
-                return through(function (chunk, enc, callback) {
-                    var str = chunk.toString("utf-8");
+                return through({
+                    decodeStrings: false
+                }, function (str, enc, callback) {
                     var ret = compile(str, aPath);
                     this.push(new Buffer(ret, "utf-8"));
                     return callback();
