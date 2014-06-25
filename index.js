@@ -142,12 +142,27 @@ function gulp_hbs_import(context, fn) {
         if (file.isStream()) {
             file.contents.setEncoding("utf-8");
             file.contents = file.contents.pipe((function (aPath) {
+                var unUseStr = "";
                 return through({
                     decodeStrings: false
                 }, function (str, enc, callback) {
+                    unUseStr = (str = unUseStr + str, "");
+                    var tag = /{{~*#([^\s}}]+)\s*.*?}}[\s\S]*?{{~*\/\1~*}}/g;
+                    var idx = 0;
+                    while (tag.exec(str))
+                        idx = tag.lastIndex;
+                    tag = /{{~*#/g;
+                    var rst = tag.exec(str.slice(idx));
+                    if (rst) {
+                        unUseStr = str.slice(rst.index);
+                        str = str.slice(0, rst.index);
+                    }
                     var ret = compile(str, aPath);
-                    this.push(new Buffer(ret, "utf-8"));
+                    this.push(ret);
                     return callback();
+                }, function (done) {
+                    unUseStr && this.push(compile(unUseStr, aPath));
+                    done(null);
                 });
             })(file.path));
         }
