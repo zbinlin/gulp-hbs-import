@@ -9,6 +9,9 @@ var Handlebars = require("handlebars");
 var fs = require("fs"),
     path = require("path");
 
+var gaze = require("glob-watcher"),
+    glob = require("glob-all");
+
 var PLUGIN_NAME = "gulp-hbs-import";
 
 var golbal_context = {};
@@ -19,106 +22,9 @@ var DEFAULT_EXT = ".html";
 var cache = {};
 
 /*
- * {{import [url] [context] [context=] [url=]}}
+ * context: {{Object}}
+ * fn: {{Function, optional}}
  */
-Handlebars.registerHelper("import", function (url, context, options) {
-    var _utils = Handlebars.Utils;
-
-    var hash = null;
-    if (1 === arguments.length) {
-        options = url;
-        hash = options.hash || {};
-        url = hash["url"] || hash["uri"];
-        context = hash["context"] || hash["ctx"] || golbal_context[path.basename(url, path.extname(url))];
-    } else if (2 === arguments.length) {
-        options = context;
-        hash = options.hash || {};
-        context = hash["context"] || hash["ctx"] || golbal_context[path.basename(url, path.extname(url))];
-    } else if (2 < arguments.length) {
-        var args = [].slice.apply(arguments);
-        options = args.pop();
-        hash = options.hash || {};
-        url = args.shift();
-        context = {};
-        while (args.length) {
-            var ctx = args.shift();
-            if ("string" === typeof ctx && golbal_context[ctx]) {
-                _utils.extend(context, golbal_context[ctx]);
-            } else {
-                _utils.extend(context, ctx);
-            }
-        }
-    }
-
-    if (!url) {
-        throw new Error("URL not find!");
-    }
-
-    if (_utils.isFunction(context)) {
-        context = context.apply(this);
-    }
-    if ("undefined" === typeof context) {
-        context = this;
-    }
-    if ("string" === typeof context && golbal_context[context]) {
-        context = _utils.extend({}, golbal_context[context]);
-    }
-
-    for (var key in hash) {
-        if (hash.hasOwnProperty(key)) {
-            var value = hash[key];
-            if ("string" === typeof value && golbal_context[value]) {
-                value = golbal_context[value];
-            }
-            context[key] = value;
-        }
-    }
-
-    /*  如果没有扩展名，则使用默认扩展名 */
-    if ("" === path.extname(url)) {
-        url += DEFAULT_EXT;
-    }
-
-    var data = options.data;
-
-    var file = path.join(data.dirname, url);
-    var dirname = path.dirname(file);
-
-    data = _utils.extend(
-        Handlebars.createFrame(data || {}),
-        {
-            dirname: dirname,
-            root: context
-        }
-    );
-
-    try {
-        var md5 = crypto.createHash("md5");
-        md5.update(file);
-        var stat = fs.statSync(file);
-        md5.update(stat.mtime.toISOString());
-        md5.update(stat.size.toString());
-        var key = md5.digest("hex");
-        var template;
-        if (cache[key]) {
-            template = cache[key];
-        } else {
-            var str = fs.readFileSync(file, "utf-8");
-            template = Handlebars.compile(str);
-            cache[key] = template;
-        }
-        return new Handlebars.SafeString(
-            template(context, {
-                data: data
-            })
-        );
-    } catch (ex) {
-        gutil.log(ex);
-        return "";
-    }
-});
-
-
 function gulp_hbs_import(context, fn) {
     if (null === context || "object" !== typeof context) {
         throw new PluginError(PLUGIN_NAME, "First arguments must be an object!");
@@ -161,17 +67,107 @@ function gulp_hbs_import(context, fn) {
 
         function compile(str, aPath) {
             var key = path.basename(aPath, path.extname(aPath));
-            var dirname = path.dirname(aPath);
-            return Handlebars.compile(str)(golbal_context[key], {
-                data: {
-                    dirname: dirname
-                }
-            });
+            var ctx = {};
+            Handlebars.Utils.extend(ctx, golbal_context[key]);
+            ctx.__root__ = golbal_context;
+
+            return Handlebars.compile(str)(ctx, {});
         }
     });
 
     return aStream;
 }
 
+
+var watch = (function () {
+    var watcher;
+    return function (pattern) {
+        if (watcher) {
+            watcher.add(pattern);
+        } else {
+            watcher = glob_watcher(pattern);
+            watcher.on("change", function (filepath) {
+                registerPartial(filepath);
+            })
+            .on("nomatch", function (filepath) {
+            });
+        }
+        return watcher;
+    };
+}());
+
+var registerPartial = function (file) {
+    fs.readFile(file, "utf-8", function (err, data) {
+        if (err) {
+            console.warn("Could not register the partial: " + file + "!");
+            return;
+        }
+        Handlebars.registerPartial(path.basename(file, path.extname(file)), data);
+    });
+};
+
+
+/*
+ * register handlebars partical with filename
+ */
+gulp_hbs_import.registerPartial = function (file, is_watch, base) {
+    if ("string" === typeof is_watch && "undefined" === typeof base) {
+        base = is_watch;
+        is_watch = false;
+    }
+    if ("string" !== typeof base) {
+        base = "widget";
+    }
+    var filepath = path.join(base, file);
+
+    if (is_watch) {
+        watch(filepath);
+    }
+
+    registerPartial(filepath);
+};
+
+/*
+ * register handlebars particals with directory
+ * dir {{String}}
+ * config {{Object}}
+ *   base: {{String}} "widget"
+ *   ext {{Array}} ext file
+ *   ignore {{Array}} exclude file
+ *   is_watch {{Boolean}} watching directory
+ */
+gulp_hbs_import.registerPartials = function (dir, config) {
+    config = Handlebars.Utils.extend({
+        base: "widget",
+        exts: [".hbs", ".html"],
+        ignores: [],
+        is_watch: false,
+    }, config);
+
+    var files = config.exts.map(function (ext) {
+        return path.join(config.base, dir, "*" + ext);
+    });
+
+    var ignores = config.ignores.map(function (ignore) {
+        return "!" + path.join(config.base, dir, ignore);
+    });
+
+    var pattern = files.concat(ignores);
+
+    // watching
+    if (config.is_watch) {
+        watch(pattern);
+    }
+
+    var self = this;
+    glob(pattern, function (err, files) {
+        if (err) {
+            return err;
+        }
+        files.forEach(function (file) {
+            self.registerPartial(file, "");
+        });
+    });
+};
 
 module.exports = gulp_hbs_import;
