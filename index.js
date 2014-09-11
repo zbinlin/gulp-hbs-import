@@ -9,8 +9,7 @@ var Handlebars = require("handlebars");
 var fs = require("fs"),
     path = require("path");
 
-var glob_watcher = require("glob-watcher"),
-    glob = require("glob-all");
+var glob = require("glob-all");
 
 var PLUGIN_NAME = "gulp-hbs-import";
 
@@ -84,27 +83,6 @@ function gulp_hbs_import(context, fn) {
 }
 
 
-var watch = (function () {
-    var watcher;
-    return function (pattern) {
-        if (watcher) {
-            watcher.add(pattern);
-        } else {
-            watcher = glob_watcher(pattern);
-            watcher.on("change", function (evt) {
-                switch (evt.type) {
-                    case "added":
-                    case "changed":
-                        registerPartial(evt.path);
-                }
-            })
-            .on("nomatch", function (evt) {
-            });
-        }
-        return watcher;
-    };
-}());
-
 var registerPartial = function (file) {
     fs.readFile(file, "utf-8", function (err, data) {
         if (err) {
@@ -119,19 +97,11 @@ var registerPartial = function (file) {
 /*
  * register handlebars partical with filename
  */
-gulp_hbs_import.registerPartial = function (file, is_watch, base) {
-    if ("string" === typeof is_watch && "undefined" === typeof base) {
-        base = is_watch;
-        is_watch = false;
-    }
+gulp_hbs_import.registerPartial = function (file, base) {
     if ("string" !== typeof base) {
         base = "widget";
     }
     var filepath = path.join(base, file);
-
-    if (is_watch) {
-        watch(filepath);
-    }
 
     registerPartial(filepath);
 };
@@ -143,14 +113,12 @@ gulp_hbs_import.registerPartial = function (file, is_watch, base) {
  *   base: {{String}} "widget"
  *   ext {{Array}} ext file
  *   ignore {{Array}} exclude file
- *   is_watch {{Boolean}} watching directory
  */
 gulp_hbs_import.registerPartials = function (dir, config) {
     config = Handlebars.Utils.extend({
         base: "widget",
         exts: [".hbs", ".html"],
-        ignores: [],
-        is_watch: false,
+        ignores: []
     }, config);
 
     var files = config.exts.map(function (ext) {
@@ -162,11 +130,6 @@ gulp_hbs_import.registerPartials = function (dir, config) {
     });
 
     var pattern = files.concat(ignores);
-
-    // watching
-    if (config.is_watch) {
-        watch(pattern);
-    }
 
     var self = this;
     glob(pattern, function (err, files) {
