@@ -1,6 +1,6 @@
 {
   "name": "gulp-hbs-import",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Handlebars \"import\" helper plugin for gulp",
   "main": "index.js",
   "scripts": {
@@ -22,7 +22,7 @@
     "glob-all": "^2.4.1",
     "glob-watcher": "0.0.6",
     "gulp-util": "^2.2.16",
-    "handlebars": "^2.0.0-alpha.4",
+    "handlebars": "^2.0.0",
     "through2": "^0.5.1"
   }
 }

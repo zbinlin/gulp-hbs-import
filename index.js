@@ -9,7 +9,7 @@ var Handlebars = require("handlebars");
 var fs = require("fs"),
     path = require("path");
 
-var gaze = require("glob-watcher"),
+var glob_watcher = require("glob-watcher"),
     glob = require("glob-all");
 
 var PLUGIN_NAME = "gulp-hbs-import";
@@ -71,7 +71,12 @@ function gulp_hbs_import(context, fn) {
             Handlebars.Utils.extend(ctx, golbal_context[key]);
             ctx.__root__ = golbal_context;
 
-            return Handlebars.compile(str)(ctx, {});
+            try {
+                return Handlebars.compile(str)(ctx, {});
+            } catch (ex) {
+                console.warn(ex.message);
+                return "";
+            }
         }
     });
 
@@ -86,10 +91,14 @@ var watch = (function () {
             watcher.add(pattern);
         } else {
             watcher = glob_watcher(pattern);
-            watcher.on("change", function (filepath) {
-                registerPartial(filepath);
+            watcher.on("change", function (evt) {
+                switch (evt.type) {
+                    case "added":
+                    case "changed":
+                        registerPartial(evt.path);
+                }
             })
-            .on("nomatch", function (filepath) {
+            .on("nomatch", function (evt) {
             });
         }
         return watcher;
